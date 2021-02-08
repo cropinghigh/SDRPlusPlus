@@ -7,7 +7,7 @@
 
 #include <spdlog/spdlog.h>
 
-float COLOR_MAP[][3] = {
+float DEFAULT_COLOR_MAP[][3] = {
     {0x00, 0x00, 0x20},
     {0x00, 0x00, 0x30},
     {0x00, 0x00, 0x50},
@@ -106,7 +106,7 @@ namespace ImGui {
         viewBandwidth = 1.0;
         wholeBandwidth = 1.0;
 
-        updatePallette(COLOR_MAP, 13);
+        updatePallette(DEFAULT_COLOR_MAP, 13);
     }
 
     void WaterFall::init() {
@@ -347,6 +347,7 @@ namespace ImGui {
             cPos = widgetPos.x + 50 + ((center - lowerFreq) * horizScale);
             width = bPos - aPos;
             txtSz = ImGui::CalcTextSize(bandplan->bands[i].name.c_str());
+            float height = txtSz.y * 2.5f;
             if (bandplan::colorTable.find(bandplan->bands[i].type.c_str()) != bandplan::colorTable.end()) {
                 color = bandplan::colorTable[bandplan->bands[i].type].colorValue;
                 colorTrans = bandplan::colorTable[bandplan->bands[i].type].transColorValue;
@@ -362,19 +363,19 @@ namespace ImGui {
                 bPos = widgetPos.x + 51;
             }
             if (width >= 1.0) {
-                window->DrawList->AddRectFilled(ImVec2(roundf(aPos), widgetPos.y + fftHeight - 25), 
+                window->DrawList->AddRectFilled(ImVec2(roundf(aPos), widgetPos.y + fftHeight + 10 - height), 
                                         ImVec2(roundf(bPos), widgetPos.y + fftHeight + 10), colorTrans);
                 if (startVis) {
-                    window->DrawList->AddLine(ImVec2(roundf(aPos), widgetPos.y + fftHeight - 26), 
+                    window->DrawList->AddLine(ImVec2(roundf(aPos), widgetPos.y + fftHeight + 10 - height - 1), 
                                         ImVec2(roundf(aPos), widgetPos.y + fftHeight + 9), color);
                 }
                 if (endVis) {
-                    window->DrawList->AddLine(ImVec2(roundf(bPos), widgetPos.y + fftHeight - 26), 
+                    window->DrawList->AddLine(ImVec2(roundf(bPos), widgetPos.y + fftHeight + 10 - height - 1), 
                                         ImVec2(roundf(bPos), widgetPos.y + fftHeight + 9), color);
                 }
             }
             if (txtSz.x <= width) {
-                window->DrawList->AddText(ImVec2(cPos - (txtSz.x / 2.0), widgetPos.y + fftHeight - 17), 
+                window->DrawList->AddText(ImVec2(cPos - (txtSz.x / 2.0), widgetPos.y + fftHeight + 10 - (height / 2.0f) - (txtSz.y / 2.0f)), 
                                     IM_COL32(255, 255, 255, 255), bandplan->bands[i].name.c_str());
             }
         }
@@ -537,11 +538,14 @@ namespace ImGui {
     float* WaterFall::getFFTBuffer() {
         if (rawFFTs == NULL) { return NULL; }
         buf_mtx.lock();
-        currentFFTLine--;
-        fftLines++;
-        currentFFTLine = ((currentFFTLine + waterfallHeight) % waterfallHeight);
-        fftLines = std::min<float>(fftLines, waterfallHeight);
-        return &rawFFTs[currentFFTLine * rawFFTSize];
+        if (waterfallVisible) {
+            currentFFTLine--;
+            fftLines++;
+            currentFFTLine = ((currentFFTLine + waterfallHeight) % waterfallHeight);
+            fftLines = std::min<float>(fftLines, waterfallHeight);
+            return &rawFFTs[currentFFTLine * rawFFTSize];
+        }
+        return rawFFTs;
     }
 
     void WaterFall::pushFFT() {
@@ -550,9 +554,10 @@ namespace ImGui {
         int drawDataSize = (viewBandwidth / wholeBandwidth) * rawFFTSize;
         int drawDataStart = (((double)rawFFTSize / 2.0) * (offsetRatio + 1)) - (drawDataSize / 2);
         
-        doZoom(drawDataStart, drawDataSize, dataWidth, &rawFFTs[currentFFTLine * rawFFTSize], latestFFT);
+        
 
         if (waterfallVisible) {
+            doZoom(drawDataStart, drawDataSize, dataWidth, &rawFFTs[currentFFTLine * rawFFTSize], latestFFT);
             memmove(&waterfallFb[dataWidth], waterfallFb, dataWidth * (waterfallHeight - 1) * sizeof(uint32_t));
             float pixel;
             float dataRange = waterfallMax - waterfallMin;
@@ -563,11 +568,16 @@ namespace ImGui {
             }
             waterfallUpdate = true;
         }
+        else {
+            doZoom(drawDataStart, drawDataSize, dataWidth, rawFFTs, latestFFT);
+            fftLines = 1;
+        }
         
         buf_mtx.unlock();
     }
 
     void WaterFall::updatePallette(float colors[][3], int colorCount) {
+        std::lock_guard<std::mutex> lck(buf_mtx);
         for (int i = 0; i < WATERFALL_RESOLUTION; i++) {
             int lowerId = floorf(((float)i / (float)WATERFALL_RESOLUTION) * colorCount);
             int upperId = ceilf(((float)i / (float)WATERFALL_RESOLUTION) * colorCount);
@@ -579,6 +589,23 @@ namespace ImGui {
             float b = (colors[lowerId][2] * (1.0 - ratio)) + (colors[upperId][2] * (ratio));
             waterfallPallet[i] = ((uint32_t)255 << 24) | ((uint32_t)b << 16) | ((uint32_t)g << 8) | (uint32_t)r;
         }
+        updateWaterfallFb();
+    }
+
+    void WaterFall::updatePalletteFromArray(float* colors, int colorCount) {
+        std::lock_guard<std::mutex> lck(buf_mtx);
+        for (int i = 0; i < WATERFALL_RESOLUTION; i++) {
+            int lowerId = floorf(((float)i / (float)WATERFALL_RESOLUTION) * colorCount);
+            int upperId = ceilf(((float)i / (float)WATERFALL_RESOLUTION) * colorCount);
+            lowerId = std::clamp<int>(lowerId, 0, colorCount - 1);
+            upperId = std::clamp<int>(upperId, 0, colorCount - 1);
+            float ratio = (((float)i / (float)WATERFALL_RESOLUTION) * colorCount) - lowerId;
+            float r = (colors[(lowerId * 3) + 0] * (1.0 - ratio)) + (colors[(upperId * 3) + 0] * (ratio));
+            float g = (colors[(lowerId * 3) + 1] * (1.0 - ratio)) + (colors[(upperId * 3) + 1] * (ratio));
+            float b = (colors[(lowerId * 3) + 2] * (1.0 - ratio)) + (colors[(upperId * 3) + 2] * (ratio));
+            waterfallPallet[i] = ((uint32_t)255 << 24) | ((uint32_t)b << 16) | ((uint32_t)g << 8) | (uint32_t)r;
+        }
+        updateWaterfallFb();
     }
 
     void WaterFall::autoRange() {
@@ -627,6 +654,7 @@ namespace ImGui {
     }
 
     void WaterFall::setViewBandwidth(double bandWidth) {
+        std::lock_guard<std::mutex> lck(buf_mtx);
         if (bandWidth == viewBandwidth) {
             return;
         }
@@ -651,6 +679,7 @@ namespace ImGui {
     }
 
     void WaterFall::setViewOffset(double offset) {
+        std::lock_guard<std::mutex> lck(buf_mtx);
         if (offset == viewOffset) {
             return;
         }
@@ -690,6 +719,7 @@ namespace ImGui {
     }
 
     void WaterFall::setWaterfallMin(float min) {
+        std::lock_guard<std::mutex> lck(buf_mtx);
         if (min == waterfallMin) {
             return;
         }
@@ -702,6 +732,7 @@ namespace ImGui {
     }
 
     void WaterFall::setWaterfallMax(float max) {
+        std::lock_guard<std::mutex> lck(buf_mtx);
         if (max == waterfallMax) {
             return;
         }
@@ -720,16 +751,17 @@ namespace ImGui {
     }
 
     void WaterFall::setRawFFTSize(int size, bool lock) {
-        if (lock) { buf_mtx.lock(); }
+        std::lock_guard<std::mutex> lck(buf_mtx);
         rawFFTSize = size;
         if (rawFFTs != NULL) {
-            rawFFTs = (float*)realloc(rawFFTs, rawFFTSize * waterfallHeight * sizeof(float));
+            int wfSize = std::max<int>(1, waterfallHeight);
+            rawFFTs = (float*)realloc(rawFFTs, rawFFTSize * wfSize * sizeof(float));
         }
         else {
-            rawFFTs = (float*)malloc(rawFFTSize * waterfallHeight * sizeof(float));
+            int wfSize = std::max<int>(1, waterfallHeight);
+            rawFFTs = (float*)malloc(rawFFTSize * wfSize * sizeof(float));
         }
         memset(rawFFTs, 0, rawFFTSize * waterfallHeight * sizeof(float));
-        if (lock) { buf_mtx.unlock(); }
     }
 
     void WaterfallVFO::setOffset(double offset) {
@@ -845,15 +877,17 @@ namespace ImGui {
     };
 
     void WaterFall::showWaterfall() {
-        waterfallVisible = true;
         buf_mtx.lock();
+        waterfallVisible = true;
         onResize();
+        memset(rawFFTs, 0, waterfallHeight * rawFFTSize * sizeof(float));
+        updateWaterfallFb();
         buf_mtx.unlock();
     }
 
     void WaterFall::hideWaterfall() {
-        waterfallVisible = false;
         buf_mtx.lock();
+        waterfallVisible = false;
         onResize();
         buf_mtx.unlock();
     }

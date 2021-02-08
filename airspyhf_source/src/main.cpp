@@ -6,7 +6,9 @@
 #include <core.h>
 #include <gui/style.h>
 #include <config.h>
+#include <options.h>
 #include <libairspyhf/airspyhf.h>
+#include <gui/widgets/stepped_slider.h>
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
 
@@ -18,7 +20,7 @@ SDRPP_MOD_INFO {
     /* Max instances    */ 1
 };
 
-//ConfigManager config;
+ConfigManager config;
 
 const char* AGG_MODES_STR = "Off\0Low\0High\0";
 
@@ -40,11 +42,11 @@ public:
 
         refresh();
 
-        selectFirst();
-
-        // config.aquire();
-        // std::string serString = config.conf["device"];
-        // config.release();
+        config.aquire();
+        std::string devSerial = config.conf["device"];
+        config.release();
+        selectByString(devSerial);
+        core::setInputSampleRate(sampleRate);
 
         sigpath::sourceManager.registerSource("Airspy HF+", &handler);
     }
@@ -121,22 +123,74 @@ public:
         airspyhf_get_samplerates(dev, sampleRates, 0);
         int n = sampleRates[0];
         airspyhf_get_samplerates(dev, sampleRates, n);
-        char buf[1024];
         sampleRateList.clear();
         sampleRateListTxt = "";
         for (int i = 0; i < n; i++) {
             sampleRateList.push_back(sampleRates[i]);
-            sprintf(buf, "%d", sampleRates[i]);
-            sampleRateListTxt += buf;
+            sampleRateListTxt += getBandwdithScaled(sampleRates[i]);
             sampleRateListTxt += '\0';
         }
 
+        char buf[1024];
+        sprintf(buf, "%016" PRIX64, serial);
+        selectedSerStr = std::string(buf);
+
+        // Load config here
+        config.aquire();
+        bool created = false;
+        if (!config.conf["devices"].contains(selectedSerStr)) {
+            created = true;
+            config.conf["devices"][selectedSerStr]["sampleRate"] = 768000;
+            config.conf["devices"][selectedSerStr]["agcMode"] = 0;
+            config.conf["devices"][selectedSerStr]["lna"] = false;
+            config.conf["devices"][selectedSerStr]["attenuation"] = 0;
+        }
+
+        // Load sample rate
         srId = 0;
+        sampleRate = sampleRateList[0];
+        if (config.conf["devices"][selectedSerStr].contains("sampleRate")) {
+            int selectedSr = config.conf["devices"][selectedSerStr]["sampleRate"];
+            for (int i = 0; i < sampleRateList.size(); i++) {
+                if (sampleRateList[i] == selectedSr) {
+                    srId = i;
+                    sampleRate = selectedSr;
+                    break;
+                }
+            }
+        }
+
+        // Load Gains
+        if (config.conf["devices"][selectedSerStr].contains("agcMode")) {
+            agcMode = config.conf["devices"][selectedSerStr]["agcMode"];
+        }
+        if (config.conf["devices"][selectedSerStr].contains("lna")) {
+            hfLNA = config.conf["devices"][selectedSerStr]["lna"];
+        }
+        if (config.conf["devices"][selectedSerStr].contains("attenuation")) {
+            atten = config.conf["devices"][selectedSerStr]["attenuation"];
+        }
+
+        config.release(created);
 
         airspyhf_close(dev);
     }
 
 private:
+    std::string getBandwdithScaled(double bw) {
+        char buf[1024];
+        if (bw >= 1000000.0) {
+            sprintf(buf, "%.1lfMHz", bw / 1000000.0);
+        }
+        else if (bw >= 1000.0) {
+            sprintf(buf, "%.1lfKHz", bw / 1000.0);
+        }
+        else {
+            sprintf(buf, "%.1lfHz", bw);
+        }
+        return std::string(buf);
+    }
+
     static void menuSelected(void* ctx) {
         AirspyHFSourceModule* _this = (AirspyHFSourceModule*)ctx;
         core::setInputSampleRate(_this->sampleRate);
@@ -172,7 +226,7 @@ private:
         if (_this->agcMode > 0) {
             airspyhf_set_hf_agc_threshold(_this->openDev, _this->agcMode - 1);
         }
-        airspyhf_set_hf_att(_this->openDev, _this->atten / 6);
+        airspyhf_set_hf_att(_this->openDev, _this->atten / 6.0f);
         airspyhf_set_hf_lna(_this->openDev, _this->hfLNA);
 
         airspyhf_start(_this->openDev, callback, _this);
@@ -211,18 +265,33 @@ private:
         ImGui::SetNextItemWidth(menuWidth);
         if (ImGui::Combo(CONCAT("##_airspyhf_dev_sel_", _this->name), &_this->devId, _this->devListTxt.c_str())) {
             _this->selectBySerial(_this->devList[_this->devId]);
+            core::setInputSampleRate(_this->sampleRate);
+            if (_this->selectedSerStr != "") {
+                config.aquire();
+                config.conf["device"] = _this->selectedSerStr;
+                config.release(true);
+            }
         }
 
         if (ImGui::Combo(CONCAT("##_airspyhf_sr_sel_", _this->name), &_this->srId, _this->sampleRateListTxt.c_str())) {
             _this->sampleRate = _this->sampleRateList[_this->srId];
             core::setInputSampleRate(_this->sampleRate);
+            if (_this->selectedSerStr != "") {
+                config.aquire();
+                config.conf["devices"][_this->selectedSerStr]["sampleRate"] = _this->sampleRate;
+                config.release(true);
+            }
         }
 
         ImGui::SameLine();
         float refreshBtnWdith = menuWidth - ImGui::GetCursorPosX();
         if (ImGui::Button(CONCAT("Refresh##_airspyhf_refr_", _this->name), ImVec2(refreshBtnWdith, 0))) {
             _this->refresh();
-            _this->selectFirst();
+            config.aquire();
+            std::string devSerial = config.conf["device"];
+            config.release();
+            _this->selectByString(devSerial);
+            core::setInputSampleRate(_this->sampleRate);
         }
 
         if (_this->running) { style::endDisabled(); }
@@ -237,6 +306,11 @@ private:
                     airspyhf_set_hf_agc_threshold(_this->openDev, _this->agcMode - 1);
                 }
             }
+            if (_this->selectedSerStr != "") {
+                config.aquire();
+                config.conf["devices"][_this->selectedSerStr]["agcMode"] = _this->agcMode;
+                config.release(true);
+            }
         }
 
         ImGui::Text("HF LNA");
@@ -244,16 +318,25 @@ private:
         if (ImGui::Checkbox(CONCAT("##_airspyhf_lna_", _this->name), &_this->hfLNA)) {
             if (_this->running) {
                 airspyhf_set_hf_lna(_this->openDev, _this->hfLNA);
+            }      
+            if (_this->selectedSerStr != "") {
+                config.aquire();
+                config.conf["devices"][_this->selectedSerStr]["lna"] = _this->hfLNA;
+                config.release(true);
             }
         }
 
         ImGui::Text("Attenuation");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-        if (ImGui::SliderInt(CONCAT("##_airspyhf_attn_", _this->name), &_this->atten, 0, 48, "%d dB")) {
-            _this->atten = (_this->atten / 6) * 6;
+        if (ImGui::SliderFloatWithSteps(CONCAT("##_airspyhf_attn_", _this->name), &_this->atten, 0, 48, 6, "%.0f dB")) {
             if (_this->running) {
-                airspyhf_set_hf_att(_this->openDev, _this->atten / 6);
+                airspyhf_set_hf_att(_this->openDev, _this->atten / 6.0f);
+            }
+            if (_this->selectedSerStr != "") {
+                config.aquire();
+                config.conf["devices"][_this->selectedSerStr]["attenuation"] = _this->atten;
+                config.release(true);
             }
         }        
     }
@@ -278,7 +361,8 @@ private:
     int srId = 0;
     int agcMode = AGC_MODE_OFF;
     bool hfLNA = false;
-    int atten = 0;
+    float atten = 0.0f;
+    std::string selectedSerStr = "";
 
     std::vector<uint64_t> devList;
     std::string devListTxt;
@@ -287,12 +371,12 @@ private:
 };
 
 MOD_EXPORT void _INIT_() {
-//    config.setPath(ROOT_DIR "/airspyhf_config.json");
-//    json defConf;
-//    defConf["device"] = "";
-//    defConf["devices"] = json::object();
-//    config.load(defConf);
-//    config.enableAutoSave();
+    json def = json({});
+    def["devices"] = json({});
+    def["device"] = "";
+    config.setPath(options::opts.root + "/airspyhf_config.json");
+    config.load(def);
+    config.enableAutoSave();
 }
 
 MOD_EXPORT ModuleManager::Instance* _CREATE_INSTANCE_(std::string name) {
@@ -304,6 +388,6 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* instance) {
 }
 
 MOD_EXPORT void _END_() {
-    // config.disableAutoSave();
-    // config.save();
+    config.disableAutoSave();
+    config.save();
 }

@@ -3,6 +3,7 @@
 #include <imgui/imgui.h>
 #include <gui/style.h>
 #include <gui/icons.h>
+
 #include <core.h>
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())

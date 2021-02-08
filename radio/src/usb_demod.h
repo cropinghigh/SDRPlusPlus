@@ -8,6 +8,7 @@
 #include <config.h>
 #include <imgui.h>
 
+
 class USBDemodulator : public Demodulator {
 public:
     USBDemodulator() {}
@@ -42,7 +43,7 @@ public:
         
         demod.init(&squelch.out, bbSampRate, bandWidth, dsp::SSBDemod::MODE_USB);
 
-        agc.init(&demod.out, 1.0f / 125.0f);
+        agc.init(&demod.out, 20.0f, bbSampRate);
 
         float audioBW = std::min<float>(audioSampRate / 2.0f, bw);
         win.init(audioBW, audioBW, bbSampRate);
@@ -118,7 +119,7 @@ public:
         float menuWidth = ImGui::GetContentRegionAvailWidth();
 
         ImGui::SetNextItemWidth(menuWidth);
-        if (ImGui::InputFloat(("##_radio_usb_bw_" + uiPrefix).c_str(), &bw, 1, 100, 0)) {
+        if (ImGui::InputFloat(("##_radio_usb_bw_" + uiPrefix).c_str(), &bw, 1, 100, "%.0f", 0)) {
             bw = std::clamp<float>(bw, bwMin, bwMax);
             setBandwidth(bw);
             _config->aquire();
@@ -129,7 +130,7 @@ public:
         ImGui::Text("Snap Interval");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-        if (ImGui::InputFloat(("##_radio_usb_snap_" + uiPrefix).c_str(), &snapInterval, 1, 100, 0)) {
+        if (ImGui::InputFloat(("##_radio_usb_snap_" + uiPrefix).c_str(), &snapInterval, 1, 100, "%.0f", 0)) {
             setSnapInterval(snapInterval);
             _config->aquire();
             _config->conf[uiPrefix]["USB"]["snapInterval"] = snapInterval;
@@ -139,7 +140,7 @@ public:
         ImGui::Text("Squelch");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-        if (ImGui::SliderFloat(("##_radio_usb_deemp_" + uiPrefix).c_str(), &squelchLevel, -100.0f, 0.0f, "%.3fdB")) {
+        if (ImGui::SliderFloat(("##_radio_usb_squelch_" + uiPrefix).c_str(), &squelchLevel, -100.0f, 0.0f, "%.3fdB")) {
             squelch.setLevel(squelchLevel);
             _config->aquire();
             _config->conf[uiPrefix]["USB"]["squelchLevel"] = squelchLevel;
@@ -151,6 +152,12 @@ private:
     void setBandwidth(float bandWidth) {
         bw = bandWidth;
         _vfo->setBandwidth(bw);
+        demod.setBandWidth(bw);
+        float audioBW = std::min<float>(audioSampRate / 2.0f, bw);
+        win.setSampleRate(bbSampRate * resamp.getInterpolation());
+        win.setCutoff(audioBW);
+        win.setTransWidth(audioBW);
+        resamp.updateWindow(&win);
     }
 
     void setSnapInterval(float snapInt) {

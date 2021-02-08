@@ -31,6 +31,11 @@
 #include <signal_path/source.h>
 #include <gui/dialogs/loading_screen.h>
 #include <options.h>
+#include <gui/colormaps.h>
+
+
+#include <gui/widgets/file_select.h>
+#include <gui/widgets/folder_select.h>
 
 // const int FFTSizes[] = {
 //     65536,
@@ -60,6 +65,7 @@ fftwf_plan p;
 float* tempFFT;
 float* FFTdata;
 char buf[1024];
+bool experimentalZoom = false;
 
 
 
@@ -121,6 +127,7 @@ void windowInit() {
     core::configManager.aquire();
     gui::menu.order = core::configManager.conf["menuOrder"].get<std::vector<std::string>>();
     std::string modulesDir = core::configManager.conf["modulesDirectory"];
+    std::string resourcesDir = core::configManager.conf["resourcesDirectory"];
     core::configManager.release();
 
     gui::menu.registerEntry("Source", sourecmenu::draw, NULL);
@@ -180,6 +187,27 @@ void windowInit() {
         LoadingScreen::show("Initializing " + name + " (" + module + ")");
         core::moduleManager.createInstance(name, module);
     }
+
+    // Load color maps
+    LoadingScreen::show("Loading color maps");
+    spdlog::info("Loading color maps");
+    if (std::filesystem::is_directory(resourcesDir + "/colormaps")) {
+        for (const auto & file : std::filesystem::directory_iterator(resourcesDir + "/colormaps")) {
+            std::string path = file.path().generic_string();
+            LoadingScreen::show("Loading " + path);
+            spdlog::info("Loading {0}", path);
+            if (file.path().extension().generic_string() != ".json") {
+                continue;
+            }
+            if (!file.is_regular_file()) { continue; }
+            colormaps::loadMap(path);
+        }
+    }
+    else {
+        spdlog::warn("Color map directory {0} does not exist, not loading modules from directory", modulesDir);
+    }
+
+    gui::waterfall.updatePalletteFromArray(colormaps::maps["Turbo"].map, colormaps::maps["Turbo"].entryCount);
 
     sourecmenu::init();
     sinkmenu::init();
@@ -276,7 +304,7 @@ void setVFO(double freq) {
     if (vfoBottom < bottom) {
         gui::waterfall.setViewOffset((BW / 2.0) - (viewBW / 2.0));
         double newVFOOffset = (BW / 2.0) - (vfoBW / 2.0) - (viewBW / 10.0);
-        sigpath::vfoManager.setCenterOffset(gui::waterfall.selectedVFO, newVFOOffset);
+        sigpath::vfoManager.setOffset(gui::waterfall.selectedVFO, newVFOOffset);
         gui::waterfall.setCenterFrequency(freq - newVFOOffset);
         sigpath::sourceManager.tune(freq - newVFOOffset);
         return;
@@ -286,7 +314,7 @@ void setVFO(double freq) {
     if (vfoTop > top) {
         gui::waterfall.setViewOffset((viewBW / 2.0) - (BW / 2.0));
         double newVFOOffset = (vfoBW / 2.0) - (BW / 2.0) + (viewBW / 10.0);
-        sigpath::vfoManager.setCenterOffset(gui::waterfall.selectedVFO, newVFOOffset);
+        sigpath::vfoManager.setOffset(gui::waterfall.selectedVFO, newVFOOffset);
         gui::waterfall.setCenterFrequency(freq - newVFOOffset);
         sigpath::sourceManager.tune(freq - newVFOOffset);
         return;
@@ -439,7 +467,7 @@ void drawWindow() {
 
     gui::freqSelect.draw();
 
-    //ImGui::SameLine();
+    ImGui::SameLine();
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 9);
     if (centerTuning) {
@@ -528,6 +556,9 @@ void drawWindow() {
                 //sigpath::signalPath.setDCBiasCorrection(dcbias.val);
             }
             ImGui::Checkbox("Show demo window", &demoWindow);
+            ImGui::Checkbox("Experimental zoom", &experimentalZoom);
+            ImGui::Text("ImGui version: %s", ImGui::GetVersion());
+
             ImGui::Spacing();
         }
 

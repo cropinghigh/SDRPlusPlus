@@ -1,6 +1,6 @@
 # SDR++, The bloat-free SDR software
 
-![Screenshot](https://i.imgur.com/WejsiFN.png)
+![Screenshot](https://i.imgur.com/EFOqwQQ.png)
 SDR++ is a cross-platform and open source SDR software with the aim of being bloat free and simple to use.
 
 ![Linux Build](https://github.com/AlexandreRouma/SDRPlusPlus/workflows/Linux%20Build/badge.svg)
@@ -183,6 +183,8 @@ Then, you need to edit the `root_dev/config` file to point to the modules that w
 ...
 ```
 
+Note: You can generate this list automatically by running `find . | grep '\.so' | sed 's/^/"/' | sed 's/$/",/' | sed '/sdrpp_core.so/d'` in the build directory.
+
 You also need to change the location of the resource and module directories, for development, I recommend:
 ```json
 ...
@@ -226,9 +228,10 @@ I will soon publish a contributing.md listing the code style to use.
 * [Benjamin Kyd](https://github.com/benkyd)
 * [cropinghigh](https://github.com/cropinghigh)
 * [Howard0su](https://github.com/howard0su)
-* [Tobias Mädel](https://github.com/Manawyrm)
+* [Martin Hauke](https://github.com/mnhauke)
 * [Raov](https://twitter.com/raov_birbtog)
 * [Szymon Zakrent](https://github.com/zakrent)
+* [Tobias Mädel](https://github.com/Manawyrm)
 
 
 ## Libaries used

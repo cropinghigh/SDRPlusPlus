@@ -66,17 +66,15 @@ duk_ret_t test_func(duk_context *ctx) {
 
 // main
 int sdrpp_main(int argc, char *argv[]) {
-#ifdef _WIN32
-    //FreeConsole();
-    // ConfigManager::setResourceDir("./res");
-    // ConfigManager::setConfigDir(".");
-#endif
-
     spdlog::info("SDR++ v" VERSION_STR);
 
     // Load default options and parse command line
     options::loadDefaults();
     if (!options::parse(argc, argv)) { return -1; }
+
+#ifdef _WIN32
+    if (!options::opts.showConsole) { FreeConsole(); }
+#endif
 
     // Check root directory
     if (!std::filesystem::exists(options::opts.root)) {
@@ -102,6 +100,7 @@ int sdrpp_main(int argc, char *argv[]) {
     defConfig["bandPlan"] = "General";
     defConfig["bandPlanEnabled"] = true;
     defConfig["centerTuning"] = false;
+    defConfig["colorMap"] = "Classic";
     defConfig["fftHeight"] = 300;
     defConfig["frequency"] = 100000000.0;
     defConfig["max"] = 0.0;
@@ -125,6 +124,7 @@ int sdrpp_main(int argc, char *argv[]) {
     defConfig["moduleInstances"]["PlutoSDR Source"] = "plutosdr_source";
     defConfig["moduleInstances"]["RTL-TCP Source"] = "rtl_tcp_source";
     defConfig["moduleInstances"]["AirspyHF+ Source"] = "airspyhf_source";
+    defConfig["moduleInstances"]["Airspy Source"] = "airspy_source";
     defConfig["moduleInstances"]["HackRF Source"] = "hackrf_source";
     defConfig["moduleInstances"]["Audio Sink"] = "audio_sink";
 
@@ -155,6 +155,16 @@ int sdrpp_main(int argc, char *argv[]) {
     core::configManager.setPath(options::opts.root + "/config.json");
     core::configManager.load(defConfig);
     core::configManager.enableAutoSave();
+
+    // Fix config
+    core::configManager.aquire();
+    for (auto const& item : defConfig.items()) {
+        if (!core::configManager.conf.contains(item.key())) {
+            spdlog::warn("Missing key in config {0}, repairing", item.key());
+            core::configManager.conf[item.key()] = defConfig[item.key()];
+        }
+    }
+    core::configManager.release(true);
 
     // Setup window
     glfwSetErrorCallback(glfw_error_callback);
