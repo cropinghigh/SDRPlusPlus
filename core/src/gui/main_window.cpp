@@ -33,10 +33,6 @@
 #include <options.h>
 #include <gui/colormaps.h>
 
-
-#include <gui/widgets/file_select.h>
-#include <gui/widgets/folder_select.h>
-
 // const int FFTSizes[] = {
 //     65536,
 //     32768,
@@ -558,6 +554,10 @@ void drawWindow() {
             ImGui::Checkbox("Show demo window", &demoWindow);
             ImGui::Checkbox("Experimental zoom", &experimentalZoom);
             ImGui::Text("ImGui version: %s", ImGui::GetVersion());
+
+            if (ImGui::Button("Test Bug")) {
+                spdlog::error("Will this make the software crash?");
+            }
 
             ImGui::Spacing();
         }
