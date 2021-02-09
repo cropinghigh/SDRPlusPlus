@@ -7,6 +7,7 @@
 #include <string>
 #include <config.h>
 #include <imgui.h>
+#include <gui/widgets/scrolled_slider.h>
 
 
 class WFMDemodulator : public Demodulator {
@@ -128,7 +129,7 @@ public:
         float menuWidth = ImGui::GetContentRegionAvailWidth();
 
         ImGui::SetNextItemWidth(menuWidth);
-        if (ImGui::InputFloat(("##_radio_wfm_bw_" + uiPrefix).c_str(), &bw, 1, 100, "%.0f", 0)) {
+        if (ImGui::InputFloatWithScrolling(("##_radio_wfm_bw_" + uiPrefix).c_str(), &bw, 1, 1000, "%.0f", 0)) {
             bw = std::clamp<float>(bw, bwMin, bwMax);
             setBandwidth(bw);
             _config->aquire();
@@ -139,7 +140,7 @@ public:
         ImGui::Text("Snap Interval");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-        if (ImGui::InputFloat(("##_radio_wfm_snap_" + uiPrefix).c_str(), &snapInterval, 1, 100, "%.0f", 0)) {
+        if (ImGui::InputFloatWithScrolling(("##_radio_wfm_snap_" + uiPrefix).c_str(), &snapInterval, 1, 1000, "%.0f", 0)) {
             setSnapInterval(snapInterval);
             _config->aquire();
             _config->conf[uiPrefix]["WFM"]["snapInterval"] = snapInterval;
@@ -160,7 +161,7 @@ public:
         ImGui::Text("Squelch");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-        if (ImGui::SliderFloat(("##_radio_wfm_sqelch_" + uiPrefix).c_str(), &squelchLevel, -100.0f, 0.0f, "%.3fdB")) {
+        if (ImGui::SliderFloatWithScrolling(("##_radio_wfm_sqelch_" + uiPrefix).c_str(), &squelchLevel, -100.0f, 0.0f, 5.0f, "%.3fdB")) {
             squelch.setLevel(squelchLevel);
             _config->aquire();
             _config->conf[uiPrefix]["WFM"]["squelchLevel"] = squelchLevel;
@@ -190,7 +191,7 @@ private:
     }
 
     const float bwMax = 200000;
-    const float bwMin = 100000;
+    const float bwMin = 5000;
     const float bbSampRate = 200000;
     const char* deempModes = "50µS\00075µS\000none\000";
     const float deempVals[2] = { 50e-6, 75e-6 };

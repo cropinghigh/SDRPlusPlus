@@ -8,6 +8,7 @@
 #include <iio.h>
 #include <ad9361.h>
 #include <options.h>
+#include <gui/widgets/scrolled_slider.h>
 
 
 #define CONCAT(a, b) ((std::string(a) + b).c_str())
@@ -193,7 +194,7 @@ private:
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (_this->gainMode) { style::beginDisabled(); }
-        if (ImGui::SliderFloat(CONCAT("##_gain_select_", _this->name), &_this->gain, 0, 76)) {
+        if (ImGui::SliderFloatWithScrolling(CONCAT("##_gain_select_", _this->name), &_this->gain, 0, 76, 4)) {
             if (_this->running) {
                 iio_channel_attr_write_longlong(iio_device_find_channel(_this->phy, "voltage0", false),"hardwaregain", round(_this->gain));
             }

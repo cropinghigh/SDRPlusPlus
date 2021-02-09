@@ -3,6 +3,7 @@
 #include <imgui/imgui.h>
 #include <gui/style.h>
 #include <gui/icons.h>
+#include <gui/widgets/scrolled_slider.h>
 
 #include <core.h>
 
@@ -217,7 +218,7 @@ void SinkManager::showVolumeSlider(std::string name, std::string prefix, float w
 
     ImGui::SetNextItemWidth(width - height - 8);
     ImGui::SetCursorPosY(ypos + ((height - sliderHeight) / 2.0f) + btwBorder);
-    if (ImGui::SliderFloat((prefix + name).c_str(), &stream->guiVolume, 0.0f, 1.0f, "")) {
+    if (ImGui::SliderFloatWithScrolling((prefix + name).c_str(), &stream->guiVolume, 0.0f, 1.0f, 0.05f, "")) {
         stream->setVolume(stream->guiVolume);
         core::configManager.aquire();
         saveStreamConfig(name);

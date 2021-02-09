@@ -7,6 +7,7 @@
 #include <string>
 #include <config.h>
 #include <imgui.h>
+#include <gui/widgets/scrolled_slider.h>
 
 
 class USBDemodulator : public Demodulator {
@@ -119,7 +120,7 @@ public:
         float menuWidth = ImGui::GetContentRegionAvailWidth();
 
         ImGui::SetNextItemWidth(menuWidth);
-        if (ImGui::InputFloat(("##_radio_usb_bw_" + uiPrefix).c_str(), &bw, 1, 100, "%.0f", 0)) {
+        if (ImGui::InputFloatWithScrolling(("##_radio_usb_bw_" + uiPrefix).c_str(), &bw, 1, 500, "%.0f", 0)) {
             bw = std::clamp<float>(bw, bwMin, bwMax);
             setBandwidth(bw);
             _config->aquire();
@@ -130,7 +131,7 @@ public:
         ImGui::Text("Snap Interval");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-        if (ImGui::InputFloat(("##_radio_usb_snap_" + uiPrefix).c_str(), &snapInterval, 1, 100, "%.0f", 0)) {
+        if (ImGui::InputFloatWithScrolling(("##_radio_usb_snap_" + uiPrefix).c_str(), &snapInterval, 1, 500, "%.0f", 0)) {
             setSnapInterval(snapInterval);
             _config->aquire();
             _config->conf[uiPrefix]["USB"]["snapInterval"] = snapInterval;
@@ -140,7 +141,7 @@ public:
         ImGui::Text("Squelch");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
-        if (ImGui::SliderFloat(("##_radio_usb_squelch_" + uiPrefix).c_str(), &squelchLevel, -100.0f, 0.0f, "%.3fdB")) {
+        if (ImGui::SliderFloatWithScrolling(("##_radio_usb_squelch_" + uiPrefix).c_str(), &squelchLevel, -100.0f, 0.0f, 5.0f, "%.3fdB")) {
             squelch.setLevel(squelchLevel);
             _config->aquire();
             _config->conf[uiPrefix]["USB"]["squelchLevel"] = squelchLevel;
@@ -165,9 +166,9 @@ private:
         _vfo->setSnapInterval(snapInterval);
     }
 
-    const float bwMax = 3000;
-    const float bwMin = 500;
-    const float bbSampRate = 6000;
+    const float bwMax = 12000;
+    const float bwMin = 100;
+    const float bbSampRate = 24000;
 
     std::string uiPrefix;
     float snapInterval = 100;
