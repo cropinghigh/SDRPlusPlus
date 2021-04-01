@@ -28,6 +28,10 @@
 #include <Windows.h>
 #endif
 
+#ifndef INSTALL_PREFIX
+    #define INSTALL_PREFIX "/usr"
+#endif
+
 namespace core {
     ConfigManager configManager;
     ScriptManager scriptManager;
@@ -35,6 +39,7 @@ namespace core {
 
     void setInputSampleRate(double samplerate) {
         // NOTE: Zoom controls won't work
+        spdlog::info("New DSP samplerate: {0}", samplerate);
         gui::waterfall.setBandwidth(samplerate);
         gui::waterfall.setViewOffset(0);
         gui::waterfall.setViewBandwidth(samplerate);
@@ -116,16 +121,18 @@ int sdrpp_main(int argc, char *argv[]) {
         "Display"
     };
     defConfig["menuWidth"] = 300;
-    defConfig["min"] = -70.0;
+    defConfig["min"] = -120.0;
 
     defConfig["moduleInstances"]["Radio"] = "radio";
     defConfig["moduleInstances"]["Recorder"] = "recorder";
     defConfig["moduleInstances"]["SoapySDR Source"] = "soapy_source";
     defConfig["moduleInstances"]["PlutoSDR Source"] = "plutosdr_source";
     defConfig["moduleInstances"]["RTL-TCP Source"] = "rtl_tcp_source";
+    defConfig["moduleInstances"]["RTL-SDR Source"] = "rtl_sdr_source";
     defConfig["moduleInstances"]["AirspyHF+ Source"] = "airspyhf_source";
     defConfig["moduleInstances"]["Airspy Source"] = "airspy_source";
-    defConfig["moduleInstances"]["HackRF Source"] = "hackrf_source";
+    defConfig["moduleInstances"]["File Source"] = "file_source";
+    defConfig["moduleInstances"]["SDRplay Source"] = "sdrplay_source";
     defConfig["moduleInstances"]["Audio Sink"] = "audio_sink";
 
     defConfig["modules"] = json::array();
@@ -135,19 +142,13 @@ int sdrpp_main(int argc, char *argv[]) {
     defConfig["streams"] = json::object();
     defConfig["windowSize"]["h"] = 720;
     defConfig["windowSize"]["w"] = 1280;
-    
-    defConfig["bandColors"]["broadcast"] = "#0000FFFF";
-    defConfig["bandColors"]["amateur"] = "#FF0000FF";
-    defConfig["bandColors"]["aviation"] = "#00FF00FF";
-    defConfig["bandColors"]["marine"] = "#00FFFFFF";
-    defConfig["bandColors"]["military"] = "#FFFF00FF";
 
 #ifdef _WIN32
     defConfig["modulesDirectory"] = "./modules";
     defConfig["resourcesDirectory"] = "./res";
 #else
-    defConfig["modulesDirectory"] = "/usr/lib/sdrpp/plugins";
-    defConfig["resourcesDirectory"] = "/usr/share/sdrpp";
+    defConfig["modulesDirectory"] = INSTALL_PREFIX "/lib/sdrpp/plugins";
+    defConfig["resourcesDirectory"] = INSTALL_PREFIX "/share/sdrpp";
 #endif
 
     // Load config
@@ -250,7 +251,10 @@ int sdrpp_main(int argc, char *argv[]) {
 
     // Setup Platform/Renderer bindings
     ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init(glsl_version);
+
+    if (ImGui_ImplOpenGL3_Init(glsl_version)) {
+        spdlog::warn("Working!");
+    }
 
     if (!style::setDarkStyle(resDir)) { return -1; }
 

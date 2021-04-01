@@ -55,7 +55,6 @@
 // int fftSizeId = 0;
 int fftSize = 8192 * 8;
 
-std::thread worker;
 std::mutex fft_mtx;
 fftwf_complex *fft_in, *fft_out;
 fftwf_plan p;
@@ -64,15 +63,12 @@ float* FFTdata;
 char buf[1024];
 bool experimentalZoom = false;
 
-
-
 void fftHandler(dsp::complex_t* samples, int count, void* ctx) {
     memcpy(fft_in, samples, count * sizeof(dsp::complex_t));
     fftwf_execute(p);
     int half = count / 2;
 
-    volk_32fc_s32f_power_spectrum_32f(tempFFT, (lv_32fc_t*)fft_out, count, count);
-    volk_32f_s32f_multiply_32f(FFTdata, tempFFT, 0.5f, count);
+    volk_32fc_s32f_power_spectrum_32f(FFTdata, (lv_32fc_t*)fft_out, count, count);
 
     memcpy(tempFFT, &FFTdata[half], half * sizeof(float));
     memmove(&FFTdata[half], FFTdata, half * sizeof(float));

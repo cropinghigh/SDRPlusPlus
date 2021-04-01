@@ -42,22 +42,19 @@ public:
 
         squelch.init(_vfo->output, squelchLevel);
         
-        demod.init(&squelch.out, bbSampRate, bandWidth / 2.0f);
+        demod.init(&squelch.out, bbSampRate, bw / 2.0f);
 
         float audioBW = std::min<float>(audioSampleRate / 2.0f, bw / 2.0f);
         win.init(audioBW, audioBW, bbSampRate);
         resamp.init(&demod.out, &win, bbSampRate, audioSampRate);
         win.setSampleRate(bbSampRate * resamp.getInterpolation());
         resamp.updateWindow(&win);
-
-        m2s.init(&resamp.out);
     }
 
     void start() {
         squelch.start();
         demod.start();
         resamp.start();
-        m2s.start();
         running = true;
     }
 
@@ -65,7 +62,6 @@ public:
         squelch.stop();
         demod.stop();
         resamp.stop();
-        m2s.stop();
         running = false;
     }
     
@@ -93,7 +89,7 @@ public:
             resamp.stop();
         }
         audioSampRate = sampleRate;
-        float audioBW = std::min<float>(audioSampRate / 2.0f, 16000.0f);
+        float audioBW = std::min<float>(audioSampRate / 2.0f, bw / 2.0f);
         resamp.setOutSampleRate(audioSampRate);
         win.setSampleRate(bbSampRate * resamp.getInterpolation());
         win.setCutoff(audioBW);
@@ -109,7 +105,7 @@ public:
     }
 
     dsp::stream<dsp::stereo_t>* getOutput() {
-        return &m2s.out;
+        return &resamp.out;
     }
     
     void showMenu() {
@@ -128,6 +124,7 @@ public:
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputFloatWithScrolling(("##_radio_fm_snap_" + uiPrefix).c_str(), &snapInterval, 1, 500, "%.0f", 0)) {
+            if (snapInterval < 1) { snapInterval = 1; }
             setSnapInterval(snapInterval);
             _config->aquire();
             _config->conf[uiPrefix]["FM"]["snapInterval"] = snapInterval;
@@ -150,6 +147,7 @@ private:
         bw = bandWidth;
         _vfo->setBandwidth(bw);
         demod.setDeviation(bw / 2.0f);
+        setAudioSampleRate(audioSampRate);
     }
 
     void setSnapInterval(float snapInt) {
@@ -157,14 +155,14 @@ private:
         _vfo->setSnapInterval(snapInterval);
     }
 
-    const float bwMax = 30000;
-    const float bwMin = 500;
-    const float bbSampRate = 30000;
+    const float bwMax = 50000;
+    const float bwMin = 6000;
+    const float bbSampRate = 50000;
 
     std::string uiPrefix;
     float snapInterval = 10000;
     float audioSampRate = 48000;
-    float bw = 12500;
+    float bw = 50000;
     bool running = false;
     float squelchLevel = -100.0f;
 
@@ -172,8 +170,7 @@ private:
     dsp::Squelch squelch;
     dsp::FMDemod demod;
     dsp::filter_window::BlackmanWindow win;
-    dsp::PolyphaseResampler<float> resamp;
-    dsp::MonoToStereo m2s;
+    dsp::PolyphaseResampler<dsp::stereo_t> resamp;
 
     ConfigManager* _config;
 

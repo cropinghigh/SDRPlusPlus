@@ -26,17 +26,22 @@ SDRPP_MOD_INFO {
     /* Max instances    */ -1
 };
 
+ConfigManager config;
 
 std::string expandString(std::string input) {
     input = std::regex_replace(input, std::regex("%ROOT%"), options::opts.root);
     return std::regex_replace(input, std::regex("//"), "/");
 }
 
-std::string genFileName(std::string prefix) {
+std::string genFileName(std::string prefix, bool isVfo, std::string name = "") {
     time_t now = time(0);
     tm *ltm = localtime(&now);
     char buf[1024];
-    sprintf(buf, "%02d-%02d-%02d_%02d-%02d-%02d.wav", ltm->tm_hour, ltm->tm_min, ltm->tm_sec, ltm->tm_mday, ltm->tm_mon + 1, ltm->tm_year + 1900);
+    double freq = gui::waterfall.getCenterFrequency();;
+    if (isVfo) {
+        freq += gui::waterfall.vfos[name]->generalOffset;
+    }
+    sprintf(buf, "%.0lfHz_%02d-%02d-%02d_%02d-%02d-%02d.wav", freq, ltm->tm_hour, ltm->tm_min, ltm->tm_sec, ltm->tm_mday, ltm->tm_mon + 1, ltm->tm_year + 1900);
     return prefix + buf;
 }
 
@@ -156,13 +161,19 @@ private:
         if (!pathValid) { style::beginDisabled(); }
         if (!recording) {
             if (ImGui::Button(CONCAT("Record##_recorder_rec_", name), ImVec2(menuColumnWidth, 0))) {
-                recording = true;
                 samplesWritten = 0;
-                std::string expandedPath = expandString(recPath + genFileName("/baseband_"));
+                std::string expandedPath = expandString(recPath + genFileName("/baseband_", false));
                 sampleRate = sigpath::signalPath.getSampleRate();
                 basebandWriter = new WavWriter(expandedPath, 16, 2, sigpath::signalPath.getSampleRate());
-                basebandHandler.start();
-                sigpath::signalPath.bindIQStream(&basebandStream);
+                if (basebandWriter->isOpen()) {
+                    basebandHandler.start();
+                    sigpath::signalPath.bindIQStream(&basebandStream);
+                    recording = true;
+                    spdlog::info("Recording to '{0}'", expandedPath);
+                }
+                else {
+                    spdlog::error("Could not create '{0}'", expandedPath);
+                }
             }
             ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), "Idle --:--:--");
         }
@@ -209,13 +220,19 @@ private:
         if (!pathValid || selectedStreamName == "") { style::beginDisabled(); }
         if (!recording) {
             if (ImGui::Button(CONCAT("Record##_recorder_rec_", name), ImVec2(menuColumnWidth, 0))) {
-                recording = true;
                 samplesWritten = 0;
-                std::string expandedPath = expandString(recPath + genFileName("/audio_"));
+                std::string expandedPath = expandString(recPath + genFileName("/audio_", true, selectedStreamName));
                 sampleRate = sigpath::sinkManager.getStreamSampleRate(selectedStreamName);
                 audioWriter = new WavWriter(expandedPath, 16, 2, sigpath::sinkManager.getStreamSampleRate(selectedStreamName));
-                audioHandler.start();
-                audioSplit.bindStream(&audioHandlerStream);
+                if (audioWriter->isOpen()) {
+                    recording = true;
+                    audioHandler.start();
+                    audioSplit.bindStream(&audioHandlerStream);
+                    spdlog::info("Recording to '{0}'", expandedPath);
+                }
+                else {
+                    spdlog::error("Could not create '{0}'", expandedPath);
+                }
             }
             ImGui::TextColored(ImGui::GetStyleColorVec4(ImGuiCol_Text), "Idle --:--:--");
         }
@@ -248,8 +265,8 @@ private:
     static void _basebandHandler(dsp::complex_t *data, int count, void *ctx) {
         RecorderModule* _this = (RecorderModule*)ctx;
         for (int i = 0; i < count; i++) {
-            _this->wavSampleBuf[(2*i)] = data[i].q * 32768.0f;
-            _this->wavSampleBuf[(2*i) + 1] = data[i].i * 32768.0f;
+            _this->wavSampleBuf[(2*i)] = data[i].re * 32768.0f;
+            _this->wavSampleBuf[(2*i) + 1] = data[i].im * 32768.0f;
         }
         _this->basebandWriter->writeSamples(_this->wavSampleBuf, count * 2 * sizeof(int16_t));
         _this->samplesWritten += count;
@@ -306,7 +323,17 @@ struct RecorderContext_t {
 };
 
 MOD_EXPORT void _INIT_() {
-    
+    // Create default recording directory
+    if (!std::filesystem::exists(options::opts.root + "/recordings")) {
+        spdlog::warn("Recordings directory does not exist, creating it");
+        if (!std::filesystem::create_directory(options::opts.root + "/recordings")) {
+            spdlog::error("Could not create recordings directory");
+        }
+    }
+    json def = json({});
+    config.setPath(options::opts.root + "/radio_config.json");
+    config.load(def);
+    config.enableAutoSave();
 }
 
 MOD_EXPORT ModuleManager::Instance* _CREATE_INSTANCE_(std::string name) {
@@ -318,5 +345,6 @@ MOD_EXPORT void _DELETE_INSTANCE_(ModuleManager::Instance* inst) {
 }
 
 MOD_EXPORT void _END_(RecorderContext_t* ctx) {
-    
+    config.disableAutoSave();
+    config.save();
 }

@@ -48,7 +48,7 @@ public:
         
         squelch.init(_vfo->output, squelchLevel);
         
-        demod.init(&squelch.out, bbSampRate, bandWidth / 2.0f);
+        demod.init(&squelch.out, bbSampRate, bw / 2.0f);
 
         float audioBW = std::min<float>(audioSampleRate / 2.0f, 16000.0f);
         win.init(audioBW, audioBW, bbSampRate);
@@ -58,7 +58,6 @@ public:
 
         deemp.init(&resamp.out, audioSampRate, tau);
 
-        m2s.init(&deemp.out);
     }
 
     void start() {
@@ -66,7 +65,6 @@ public:
         demod.start();
         resamp.start();
         deemp.start();
-        m2s.start();
         running = true;
     }
 
@@ -75,7 +73,6 @@ public:
         demod.stop();
         resamp.stop();
         deemp.stop();
-        m2s.stop();
         running = false;
     }
     
@@ -122,7 +119,7 @@ public:
     }
 
     dsp::stream<dsp::stereo_t>* getOutput() {
-        return &m2s.out;
+        return &deemp.out;
     }
     
     void showMenu() {
@@ -141,6 +138,7 @@ public:
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputFloatWithScrolling(("##_radio_wfm_snap_" + uiPrefix).c_str(), &snapInterval, 1, 1000, "%.0f", 0)) {
+            if (snapInterval < 1) { snapInterval = 1; }
             setSnapInterval(snapInterval);
             _config->aquire();
             _config->conf[uiPrefix]["WFM"]["snapInterval"] = snapInterval;
@@ -190,9 +188,9 @@ private:
         _vfo->setSnapInterval(snapInterval);
     }
 
-    const float bwMax = 200000;
-    const float bwMin = 5000;
-    const float bbSampRate = 200000;
+    const float bwMax = 250000;
+    const float bwMin = 50000;
+    const float bbSampRate = 250000;
     const char* deempModes = "50µS\00075µS\000none\000";
     const float deempVals[2] = { 50e-6, 75e-6 };
 
@@ -209,9 +207,8 @@ private:
     dsp::Squelch squelch;
     dsp::FMDemod demod;
     dsp::filter_window::BlackmanWindow win;
-    dsp::PolyphaseResampler<float> resamp;
+    dsp::PolyphaseResampler<dsp::stereo_t> resamp;
     dsp::BFMDeemp deemp;
-    dsp::MonoToStereo m2s;
 
     ConfigManager* _config;
 

@@ -61,29 +61,30 @@ double findBestRange(double bandwidth, int maxSteps) {
 }
 
 void printAndScale(double freq, char* buf) {
-    if (freq < 1000) {
-        sprintf(buf, "%.3lf", freq);
+    double freqAbs = fabs(freq);
+    if (freqAbs < 1000) {
+        sprintf(buf, "%.6g", freq);
     }
-    else if (freq < 1000000) {
-        sprintf(buf, "%.3lfK", freq / 1000.0);
+    else if (freqAbs < 1000000) {
+        sprintf(buf, "%.6lgK", freq / 1000.0);
     }
-    else if (freq < 1000000000) {
-        sprintf(buf, "%.3lfM", freq / 1000000.0);
+    else if (freqAbs < 1000000000) {
+        sprintf(buf, "%.6lgM", freq / 1000000.0);
     }
-    else if (freq < 1000000000000) {
-        sprintf(buf, "%.3lfG", freq / 1000000000.0);
+    else if (freqAbs < 1000000000000) {
+        sprintf(buf, "%.6lgG", freq / 1000000000.0);
     }
-    for (int i = strlen(buf) - 2; i >= 0; i--) {
-        if (buf[i] != '0') {
-            if (buf[i] == '.') {
-                i--;
-            }
-            char scale = buf[strlen(buf) - 1];
-            buf[i + 1] = scale;
-            buf[i + 2] = 0;
-            return;
-        }
-    }
+    // for (int i = strlen(buf) - 2; i >= 0; i--) {
+    //     if (buf[i] != '0') {
+    //         if (buf[i] == '.') {
+    //             i--;
+    //         }
+    //         char scale = buf[strlen(buf) - 1];
+    //         buf[i + 1] = scale;
+    //         buf[i + 2] = 0;
+    //         return;
+    //     }
+    // }
 }
 
 namespace ImGui {
@@ -186,12 +187,8 @@ namespace ImGui {
 
         if (IS_IN_AREA(mPos, wfMin, wfMax)) {
             for (auto const& [name, vfo] : vfos) {
-                ImVec2 nVfoRectMin(vfo->rectMin.x, wfMin.y);
-                ImVec2 nVfoRectMax(vfo->rectMax.x, wfMax.y);
-                ImVec2 nVfoLineMin(vfo->lineMin.x, wfMin.y);
-                ImVec2 nVfoLineMax(vfo->lineMin.x, wfMax.y);
-                window->DrawList->AddRectFilled(nVfoRectMin, nVfoRectMax, IM_COL32(255, 255, 255, 50));
-                window->DrawList->AddLine(nVfoLineMin, nVfoLineMax, (name == selectedVFO) ? IM_COL32(255, 0, 0, 255) : IM_COL32(255, 255, 0, 255));
+                window->DrawList->AddRectFilled(vfo->wfRectMin, vfo->wfRectMax, IM_COL32(255, 255, 255, 50));
+                window->DrawList->AddLine(vfo->wfLineMin, vfo->wfLineMax, (name == selectedVFO) ? IM_COL32(255, 0, 0, 255) : IM_COL32(255, 255, 0, 255));
             }
         }
     }
@@ -201,6 +198,10 @@ namespace ImGui {
             if (vfo->redrawRequired) {
                 vfo->redrawRequired = false;
                 vfo->updateDrawingVars(viewBandwidth, dataWidth, viewOffset, widgetPos, fftHeight);
+                vfo->wfRectMin = ImVec2(vfo->rectMin.x, wfMin.y);
+                vfo->wfRectMax = ImVec2(vfo->rectMax.x, wfMax.y);
+                vfo->wfLineMin = ImVec2(vfo->lineMin.x, wfMin.y);
+                vfo->wfLineMax = ImVec2(vfo->lineMax.x, wfMax.y);
             }
             vfo->draw(window, name == selectedVFO);
         }
@@ -247,9 +248,7 @@ namespace ImGui {
                 if (name == selectedVFO) {
                     continue;
                 }
-                ImVec2 nVfoRectMin(_vfo->rectMin.x, wfMin.y);
-                ImVec2 nVfoRectMax(_vfo->rectMax.x, wfMax.y);
-                if (IS_IN_AREA(mousePos, _vfo->rectMin, _vfo->rectMax) || IS_IN_AREA(mousePos, nVfoRectMin, nVfoRectMax)) {
+                if (IS_IN_AREA(mousePos, _vfo->rectMin, _vfo->rectMax) || IS_IN_AREA(mousePos, _vfo->wfRectMin, _vfo->wfRectMax)) {
                     selectedVFO = name;
                     selectedVFOChanged = true;
                     return;
@@ -257,7 +256,7 @@ namespace ImGui {
             }
             if (vfo != NULL) {
                 int refCenter = mousePos.x - (widgetPos.x + 50);
-                if (refCenter >= 0 && refCenter < dataWidth /* && (   (mousePos.y > widgetPos.y && mousePos.y < (widgetPos.y + widgetSize.y))    ||    (IS_IN_AREA(mousePos, nVfoRectMin, nVfoRectMax))    )  */  ) {
+                if (refCenter >= 0 && refCenter < dataWidth) {
                     double off = ((((double)refCenter / ((double)dataWidth / 2.0)) - 1.0) * (viewBandwidth / 2.0)) + viewOffset;
                     off += centerFreq;
                     off = (round(off / vfo->snapInterval) * vfo->snapInterval) - centerFreq;
@@ -475,7 +474,6 @@ namespace ImGui {
 
         range = findBestRange(viewBandwidth, maxHSteps);
         vRange = findBestRange(fftMax - fftMin, maxVSteps);
-        vRange = 10.0;
 
         updateWaterfallFb();
         updateAllVFOs();
@@ -766,6 +764,10 @@ namespace ImGui {
     void WaterFall::updateAllVFOs() {
         for (auto const& [name, vfo] : vfos) {
             vfo->updateDrawingVars(viewBandwidth, dataWidth, viewOffset, widgetPos, fftHeight);
+            vfo->wfRectMin = ImVec2(vfo->rectMin.x, wfMin.y);
+            vfo->wfRectMax = ImVec2(vfo->rectMax.x, wfMax.y);
+            vfo->wfLineMin = ImVec2(vfo->lineMin.x, wfMin.y);
+            vfo->wfLineMax = ImVec2(vfo->lineMax.x, wfMax.y);
         }
     }
 
