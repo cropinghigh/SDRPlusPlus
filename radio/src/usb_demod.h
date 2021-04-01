@@ -42,7 +42,7 @@ public:
 
         squelch.init(_vfo->output, squelchLevel);
         
-        demod.init(&squelch.out, bbSampRate, bandWidth, dsp::SSBDemod::MODE_USB);
+        demod.init(&squelch.out, bbSampRate, bw, dsp::SSBDemod::MODE_USB);
 
         agc.init(&demod.out, 20.0f, bbSampRate);
 
@@ -132,6 +132,7 @@ public:
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputFloatWithScrolling(("##_radio_usb_snap_" + uiPrefix).c_str(), &snapInterval, 1, 500, "%.0f", 0)) {
+            if (snapInterval < 1) { snapInterval = 1; }
             setSnapInterval(snapInterval);
             _config->aquire();
             _config->conf[uiPrefix]["USB"]["snapInterval"] = snapInterval;
@@ -167,7 +168,7 @@ private:
     }
 
     const float bwMax = 12000;
-    const float bwMin = 100;
+    const float bwMin = 500;
     const float bbSampRate = 24000;
 
     std::string uiPrefix;

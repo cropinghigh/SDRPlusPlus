@@ -42,7 +42,7 @@ public:
 
         squelch.init(_vfo->output, squelchLevel);
         
-        demod.init(&squelch.out, bbSampRate, bandWidth, dsp::SSBDemod::MODE_LSB);
+        demod.init(&squelch.out, bbSampRate, bw, dsp::SSBDemod::MODE_LSB);
 
         agc.init(&demod.out, 20.0f, bbSampRate);
 
@@ -132,6 +132,7 @@ public:
         ImGui::SameLine();
         ImGui::SetNextItemWidth(menuWidth - ImGui::GetCursorPosX());
         if (ImGui::InputFloatWithScrolling(("##_radio_lsb_snap_" + uiPrefix).c_str(), &snapInterval, 1, 100, "%.0f", 0)) {
+            if (snapInterval < 1) { snapInterval = 1; }
             setSnapInterval(snapInterval);
             _config->aquire();
             _config->conf[uiPrefix]["LSB"]["snapInterval"] = snapInterval;

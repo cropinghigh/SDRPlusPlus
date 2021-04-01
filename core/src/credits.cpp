@@ -2,13 +2,15 @@
 
 namespace sdrpp_credits {
     const char* contributors[] = {
-        "Ryzerth (Author)",
-        "aosync",
+        "Alexandre Rouma (Author)",
+        "Aang23",
         "Alexsey Shestacov",
+        "Aosync",
         "Benjamin Kyd",
         "Cropinghigh",
         "Howard0su",
         "Martin Hauke",
+        "Paulo Matias",
         "Raov",
         "Szymon Zakrent",
         "Tobias Mädel"
@@ -17,14 +19,18 @@ namespace sdrpp_credits {
     const char* libraries[] = {
         "Dear ImGui (ocornut)",
         "json (nlohmann)",
-        "portaudio (P.A. comm.)",
+        "RtAudio",
         "SoapySDR (PothosWare)",
         "spdlog (gabime)",
     };
 
     const char* patrons[] = {
-        "SignalsEverywhere",
-        "Lee Donaghy"
+        "Daniele D'Agnelli",
+        "W4IPA",
+        "Lee Donaghy",
+        "Passion-Radio.com",
+        "Scanner School",
+        "SignalsEverywhere"
     };
 
     const int contributorCount = sizeof(contributors) / sizeof(char*);

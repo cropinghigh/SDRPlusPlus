@@ -13,8 +13,6 @@ namespace dsp {
 
         Splitter(stream<T>* in) { init(in); }
 
-        ~Splitter() { generic_block<Splitter>::stop(); }
-
         void init(stream<T>* in) {
             _in = in;
             generic_block<Splitter>::registerInput(_in);
@@ -72,8 +70,6 @@ namespace dsp {
 
         Reshaper(stream<T>* in, int keep, int skip) { init(in, keep, skip); }
 
-        ~Reshaper() { generic_block<Reshaper<T>>::stop(); }
-
         void init(stream<T>* in, int keep, int skip) {
             _in = in;
             _keep = keep;
@@ -95,19 +91,15 @@ namespace dsp {
         void setKeep(int keep) {
             std::lock_guard<std::mutex> lck(generic_block<Reshaper<T>>::ctrlMtx);
             generic_block<Reshaper<T>>::tempStop();
-            generic_block<Reshaper<T>>::unregisterInput(_in);
             _keep = keep;
             ringBuf.setMaxLatency(keep * 2);
-            generic_block<Reshaper<T>>::registerInput(_in);
             generic_block<Reshaper<T>>::tempStart();
         }
 
         void setSkip(int skip) {
             std::lock_guard<std::mutex> lck(generic_block<Reshaper<T>>::ctrlMtx);
             generic_block<Reshaper<T>>::tempStop();
-            generic_block<Reshaper<T>>::unregisterInput(_in);
             _skip = skip;
-            generic_block<Reshaper<T>>::registerInput(_in);
             generic_block<Reshaper<T>>::tempStart();
         }
 
@@ -151,27 +143,29 @@ namespace dsp {
         }
 
         void bufferWorker() {
-            complex_t* buf = new complex_t[_keep];
+            T* buf = new T[_keep];
             bool delay = _skip < 0;
 
             int readCount = std::min<int>(_keep + _skip, _keep);
             int skip = std::max<int>(_skip, 0);
-            int delaySize = (-_skip) * sizeof(complex_t);
+            int delaySize = (-_skip) * sizeof(T);
             int delayCount = (-_skip);
 
-            complex_t* start = &buf[std::max<int>(-_skip, 0)];
-            complex_t* delayStart = &buf[_keep + _skip];
+            T* start = &buf[std::max<int>(-_skip, 0)];
+            T* delayStart = &buf[_keep + _skip];
 
             while (true) {
                 if (delay) {
                     memmove(buf, delayStart, delaySize);
-                    for (int i = 0; i < delayCount; i++) {
-                        buf[i].i /= 10.0f;
-                        buf[i].q /= 10.0f;
+                    if constexpr (std::is_same_v<T, complex_t> || std::is_same_v<T, stereo_t>) {
+                        for (int i = 0; i < delayCount; i++) {
+                            buf[i].re /= 10.0f;
+                            buf[i].im /= 10.0f;
+                        }
                     }
                 }
                 if (ringBuf.readAndSkip(start, readCount, skip) < 0) { break; };
-                memcpy(out.writeBuf, buf, _keep * sizeof(complex_t));
+                memcpy(out.writeBuf, buf, _keep * sizeof(T));
                 if (!out.swap(_keep)) { break; }
             }
             delete[] buf;

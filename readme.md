@@ -35,7 +35,7 @@ Download the latest release from [the Releases page](https://github.com/Alexandr
 
 Then, run:
 ```sh
-sudo apt install libfftw3-dev libglfw3-dev libglew-dev libvolk2-dev libsoapysdr-dev libairspyhf-dev libiio-dev libad9361-dev portaudio19-dev libhackrf-dev
+sudo apt install libfftw3-dev libglfw3-dev libglew-dev libvolk2-dev libsoapysdr-dev libairspyhf-dev libiio-dev libad9361-dev librtaudio-dev libhackrf-dev
 sudo dpkg -i sdrpp_debian_amd64.deb
 ```
 
@@ -52,10 +52,10 @@ TODO
 * cmake
 * vcpkg
 * PothosSDR (This will install libraires for most SDRs)
+* rtaudio
 
 After this, install the following depencies using vcpkg:
 * fftw3
-* portaudio
 * glfw
 * glew
 
@@ -143,7 +143,7 @@ Next install dependencies based on the modules you wish to build:
 * soapy_source: SoapySDR + drivers for each SDRs (see SoapySDR docs)
 * airspyhf_source: libairspyhf
 * plutosdr_source: libiio, libad9361
-* audio_sink: portaudio
+* audio_sink: librtaudio-dev
 
 Note: make sure you're using GCC 8 or later as older versions do not have `std::filesystem` built-in.
 
@@ -219,16 +219,24 @@ I will soon publish a contributing.md listing the code style to use.
 # Credits
 
 ## Patrons
-* [SignalsEverywhere](https://signalseverywhere.com/)
+
+* [Daniele D'Agnelli](https://linkedin.com/in/dagnelli)
+* [W4IPA](https://twitter.com/W4IPAstroke5)
 * [Lee Donaghy](https://github.com/github)
+* [Passion-Radio.com](https://passion-radio.com/)
+* [Scanner School](https://scannerschool.com/)
+* [SignalsEverywhere](https://signalseverywhere.com/)
+
 
 ## Contributors
-* [aosync](https://github.com/aosync)
+* [Aang23](https://github.com/Aang23)
 * [Alexsey Shestacov](https://github.com/wingrime)
+* [Aosync](https://github.com/aosync)
 * [Benjamin Kyd](https://github.com/benkyd)
-* [cropinghigh](https://github.com/cropinghigh)
+* [Cropinghigh](https://github.com/cropinghigh)
 * [Howard0su](https://github.com/howard0su)
 * [Martin Hauke](https://github.com/mnhauke)
+* [Paulo Matias](https://github.com/thotypous)
 * [Raov](https://twitter.com/raov_birbtog)
 * [Szymon Zakrent](https://github.com/zakrent)
 * [Tobias Mädel](https://github.com/Manawyrm)
@@ -239,4 +247,4 @@ I will soon publish a contributing.md listing the code style to use.
 * [Dear ImGui (ocornut)](https://github.com/ocornut/imgui)
 * [spdlog (gabime)](https://github.com/gabime/spdlog)
 * [json (nlohmann)](https://github.com/nlohmann/json)
-* [portaudio (PortAudio community)](http://www.portaudio.com/)
+* [rtaudio](http://www.portaudio.com/)
