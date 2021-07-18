@@ -1,4 +1,3 @@
-#pragma once
 #include <utils/networking.h>
 #include <assert.h>
 
@@ -299,7 +298,7 @@ namespace net {
 #endif
 
         // Create a socket
-        sock = socket(AF_INET, SOCK_STREAM, (proto == PROTO_TCP) ? IPPROTO_TCP : IPPROTO_UDP);
+        sock = socket(AF_INET, (proto == PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM, (proto == PROTO_TCP) ? IPPROTO_TCP : IPPROTO_UDP);
         if (sock < 0) {
             throw std::runtime_error("Could not create socket");
             return NULL;
@@ -345,7 +344,7 @@ namespace net {
 #endif
 
         // Create a socket
-        listenSock = socket(AF_INET, SOCK_STREAM, (proto == PROTO_TCP) ? IPPROTO_TCP : IPPROTO_UDP);
+        listenSock = socket(AF_INET, (proto == PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM, (proto == PROTO_TCP) ? IPPROTO_TCP : IPPROTO_UDP);
         if (listenSock < 0) {
             throw std::runtime_error("Could not create socket");
             return NULL;

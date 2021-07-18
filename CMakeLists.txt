@@ -26,6 +26,7 @@ option(OPT_BUILD_PLUTOSDR_SOURCE "Build PlutoSDR Source Module (Depedencies: lib
 option(OPT_BUILD_AUDIO_SINK "Build Audio Sink Module (Depedencies: rtaudio)" ON)
 option(OPT_BUILD_PORTAUDIO_SINK "Build PortAudio Sink Module (Depedencies: portaudio)" OFF)
 option(OPT_BUILD_NEW_PORTAUDIO_SINK "Build the new PortAudio Sink Module (Depedencies: portaudio)" OFF)
+option(OPT_BUILD_NETWORK_SINK "Build Network sink Module " ON)
 
 # Decoders
 option(OPT_BUILD_FALCON9_DECODER "Build the falcon9 live decoder (Dependencies: ffplay)" OFF)
@@ -118,6 +119,10 @@ endif (OPT_BUILD_PORTAUDIO_SINK)
 if (OPT_BUILD_NEW_PORTAUDIO_SINK)
 add_subdirectory("new_portaudio_sink")
 endif (OPT_BUILD_NEW_PORTAUDIO_SINK)
+
+if(OPT_BUILD_NETWORK_SINK)
+add_subdirectory("network_sink")
+endif(OPT_BUILD_NETWORK_SINK)
 
 
 # Decoders
